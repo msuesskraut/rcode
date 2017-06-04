@@ -15,7 +15,7 @@ pub enum PrimitiveType {
     Integer,
     Long,
     Float,
-    Double
+    Double,
 }
 
 #[derive(Debug)]
@@ -58,21 +58,19 @@ pub enum ConstValue {
     String(String),
 }
 
-pub fn is_valid_id(id : &String) -> bool {
+pub fn is_valid_id(id: &String) -> bool {
     id.len() > 0
 }
 
 #[derive(Debug)]
-pub struct ConstantPool (
-    Vec<ConstValue>,
-);
+pub struct ConstantPool(Vec<ConstValue>);
 
 #[derive(Debug)]
 pub struct Method {
-    name : String,
-    statik : bool,
-    locals : usize,
-    code : Vec<OpCode>
+    name: String,
+    statik: bool,
+    locals: usize,
+    code: Vec<OpCode>,
 }
 
 impl Method {
@@ -99,53 +97,53 @@ impl Method {
 
 #[derive(Default, Debug)]
 pub struct MethodBuilder {
-    name : String,
-    locals : usize,
-    statik : bool,
-    code : Vec<OpCode>,
+    name: String,
+    locals: usize,
+    statik: bool,
+    code: Vec<OpCode>,
 }
 
 impl MethodBuilder {
-    pub fn set_name(mut self, name : String) -> MethodBuilder {
+    pub fn set_name(mut self, name: String) -> MethodBuilder {
         self.name = name;
         self
     }
 
-    pub fn set_static(mut self, statik : bool) -> MethodBuilder {
+    pub fn set_static(mut self, statik: bool) -> MethodBuilder {
         self.statik = statik;
         self
     }
 
-    pub fn set_locals(mut self, locals : usize) -> MethodBuilder {
+    pub fn set_locals(mut self, locals: usize) -> MethodBuilder {
         self.locals = locals;
         self
     }
 
-    pub fn append_op(mut self, op : OpCode) -> MethodBuilder {
+    pub fn append_op(mut self, op: OpCode) -> MethodBuilder {
         self.code.push(op);
         self
     }
 
     pub fn create_method(self) -> Result<Method, AstError> {
         use self::AstError::*;
-    
+
         if !is_valid_id(&self.name) {
-            return Err(IllegalMethodName(self.name))
+            return Err(IllegalMethodName(self.name));
         }
         Ok(Method {
-            name : self.name,
-            locals : self.locals,
-            statik : self.statik,
-            code : self.code,
-        })
+               name: self.name,
+               locals: self.locals,
+               statik: self.statik,
+               code: self.code,
+           })
     }
 }
 
 #[derive(Debug)]
 pub struct Class {
-    name : String,
-    constant_pool : ConstantPool,
-    methods : HashMap<String, Method>,
+    name: String,
+    constant_pool: ConstantPool,
+    methods: HashMap<String, Method>,
 }
 
 impl Class {
@@ -160,28 +158,28 @@ impl Class {
     }
 
     #[inline]
-    pub fn get_method(&self, name : &String) -> Option<&Method> {
+    pub fn get_method(&self, name: &String) -> Option<&Method> {
         self.methods.get(name)
     }
 }
 
 #[derive(Debug)]
 pub struct ClassBuilder {
-    name : String,
-    constant_pool : ConstantPool,
-    methods : HashMap<String, Method>,
+    name: String,
+    constant_pool: ConstantPool,
+    methods: HashMap<String, Method>,
 }
 
 impl ClassBuilder {
-    pub fn new(name : String) -> ClassBuilder {
+    pub fn new(name: String) -> ClassBuilder {
         ClassBuilder {
             name,
-            constant_pool : ConstantPool(Vec::new()),
-            methods : HashMap::new(),
+            constant_pool: ConstantPool(Vec::new()),
+            methods: HashMap::new(),
         }
     }
 
-    pub fn new_method(&mut self, method_builder : MethodBuilder) -> Result<(), AstError> {
+    pub fn new_method(&mut self, method_builder: MethodBuilder) -> Result<(), AstError> {
         let method = method_builder.create_method()?;
         self.methods.insert(method.get_name().clone(), method);
         Ok(())
@@ -192,13 +190,12 @@ impl ClassBuilder {
 
         if !is_valid_id(&self.name) {
             Err(IllegalClassName(self.name))
-        }
-        else {
+        } else {
             Ok(Class {
-                name : self.name,
-                constant_pool : self.constant_pool,
-                methods : self.methods,
-            })
+                   name: self.name,
+                   constant_pool: self.constant_pool,
+                   methods: self.methods,
+               })
         }
     }
 }

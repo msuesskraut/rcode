@@ -8,9 +8,8 @@ fn create_adder_method() {
 
     let mut c = ClassBuilder::new("MyClass".to_string());
 
-    let mut m : MethodBuilder = Default::default();
-    let m = m
-        .set_name("adder".to_string())
+    let mut m: MethodBuilder = Default::default();
+    let m = m.set_name("adder".to_string())
         .set_static(true)
         .set_locals(2)
         .append_op(iload_1)

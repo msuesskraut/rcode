@@ -25,12 +25,11 @@ pub enum StackValue {
 
 #[derive(Debug)]
 pub struct Array {
-    ty : Type,
+    ty: Type,
 }
 
 #[derive(Debug)]
-pub struct Object {
-}
+pub struct Object {}
 
 enum OpResult {
     Next,
@@ -43,28 +42,27 @@ use self::OpResult::*;
 
 #[derive(Debug)]
 pub struct Frame {
-    locals : Vec<StackValue>,
-    stack : Vec<StackValue>,
-    pc : usize,
+    locals: Vec<StackValue>,
+    stack: Vec<StackValue>,
+    pc: usize,
 }
 
 impl Frame {
-    pub fn new(method: &Method, parent_stack : &mut Vec<StackValue>) -> Result<Frame, InterpError> {
+    pub fn new(method: &Method, parent_stack: &mut Vec<StackValue>) -> Result<Frame, InterpError> {
         let num_locals = method.get_locals();
         if parent_stack.len() < num_locals {
             Result::Err(InterpError::InsufficientLocals)
-        }
-        else {
+        } else {
             let split_point = parent_stack.len() - num_locals;
             Ok(Frame {
-                locals : parent_stack.split_off(split_point),
-                stack : Vec::new(),
-                pc : 0,
-            })
+                   locals: parent_stack.split_off(split_point),
+                   stack: Vec::new(),
+                   pc: 0,
+               })
         }
     }
 
-    fn push(&mut self, v : StackValue) {
+    fn push(&mut self, v: StackValue) {
         self.stack.push(v);
     }
 
@@ -77,23 +75,20 @@ impl Frame {
         if let Some(v) = v {
             if let StackValue::Int(v) = v {
                 Ok(v)
-            }
-            else {
+            } else {
                 Result::Err(InterpError::WrongType)
             }
-        }
-        else {
+        } else {
             Result::Err(InterpError::StackUnderflow)
         }
     }
 
-    fn iload(&mut self, addr : usize) -> OpResult {
+    fn iload(&mut self, addr: usize) -> OpResult {
         if addr < self.locals.len() {
             let v = self.locals[addr].clone();
             self.push(v);
             Next
-        }
-        else {
+        } else {
             Err(InterpError::InsufficientLocals)
         }
     }
@@ -105,12 +100,10 @@ impl Frame {
             if let Ok(rhs) = rhs {
                 self.push(StackValue::Int(lhs.wrapping_add(rhs)));
                 Next
-            }
-            else {
+            } else {
                 Err(rhs.unwrap_err())
             }
-        }
-        else {
+        } else {
             Err(lhs.unwrap_err())
         }
     }
@@ -119,14 +112,13 @@ impl Frame {
         let ret_val = self.pop_int();
         if let Ok(ret_val) = ret_val {
             Return(StackValue::Int(ret_val))
-        }
-        else {
+        } else {
             Err(ret_val.unwrap_err())
         }
     }
 
-    fn exec_op(&mut self, op : OpCode) -> OpResult {
-        use ast::OpCode ::*;
+    fn exec_op(&mut self, op: OpCode) -> OpResult {
+        use ast::OpCode::*;
         match op {
             iload_1 => self.iload(1),
             iload_2 => self.iload(2),
@@ -135,13 +127,13 @@ impl Frame {
         }
     }
 
-    pub fn exec(&mut self, method : &Method) -> Result<StackValue, InterpError> {
+    pub fn exec(&mut self, method: &Method) -> Result<StackValue, InterpError> {
         {
             let mut pc = 0usize;
             let code = method.get_code();
 
             loop {
-                let op : OpCode = code[pc];
+                let op: OpCode = code[pc];
                 match self.exec_op(op) {
                     Next => pc += 1,
                     Jump(next_pc) => pc = next_pc,
