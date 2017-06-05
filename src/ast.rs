@@ -62,140 +62,102 @@ pub fn is_valid_id(id: &String) -> bool {
     id.len() > 0
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ConstantPool(Vec<ConstValue>);
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
+pub struct FunctionType {
+    ret: Option<Type>,
+    args: Vec<Type>,
+}
+
+#[derive(Debug, Default)]
 pub struct Method {
-    name: String,
-    statik: bool,
-    locals: usize,
-    code: Vec<OpCode>,
+    pub name: String,
+    pub ty: FunctionType,
+    pub statik: bool,
+    pub locals: usize,
+    pub code: Vec<OpCode>,
 }
 
-impl Method {
-    #[inline]
-    pub fn get_name(&self) -> &String {
-        &self.name
-    }
-
-    #[inline]
-    pub fn is_static(&self) -> bool {
-        self.statik
-    }
-
-    #[inline]
-    pub fn get_locals(&self) -> usize {
-        self.locals
-    }
-
-    #[inline]
-    pub fn get_code(&self) -> &Vec<OpCode> {
-        &self.code
-    }
-}
-
-#[derive(Default, Debug)]
+#[derive(Debug, Default)]
 pub struct MethodBuilder {
-    name: String,
-    locals: usize,
-    statik: bool,
-    code: Vec<OpCode>,
+    method: Method,
 }
 
 impl MethodBuilder {
     pub fn set_name(mut self, name: String) -> MethodBuilder {
-        self.name = name;
+        self.method.name = name;
         self
     }
 
     pub fn set_static(mut self, statik: bool) -> MethodBuilder {
-        self.statik = statik;
+        self.method.statik = statik;
         self
     }
 
     pub fn set_locals(mut self, locals: usize) -> MethodBuilder {
-        self.locals = locals;
+        self.method.locals = locals;
         self
     }
 
     pub fn append_op(mut self, op: OpCode) -> MethodBuilder {
-        self.code.push(op);
+        self.method.code.push(op);
         self
     }
 
     pub fn create_method(self) -> Result<Method, AstError> {
         use self::AstError::*;
 
-        if !is_valid_id(&self.name) {
-            return Err(IllegalMethodName(self.name));
+        if !is_valid_id(&self.method.name) {
+            return Err(IllegalMethodName(self.method.name));
         }
-        Ok(Method {
-               name: self.name,
-               locals: self.locals,
-               statik: self.statik,
-               code: self.code,
-           })
+        Ok(self.method)
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Class {
-    name: String,
+    pub name: String,
     constant_pool: ConstantPool,
     methods: HashMap<String, Method>,
 }
 
 impl Class {
     #[inline]
-    pub fn get_name(&self) -> &String {
-        &self.name
-    }
-
-    #[inline]
-    pub fn get_constant_pool(&self) -> &ConstantPool {
-        &self.constant_pool
-    }
-
-    #[inline]
     pub fn get_method(&self, name: &String) -> Option<&Method> {
         self.methods.get(name)
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ClassBuilder {
-    name: String,
-    constant_pool: ConstantPool,
-    methods: HashMap<String, Method>,
+    class: Class,
 }
 
 impl ClassBuilder {
     pub fn new(name: String) -> ClassBuilder {
         ClassBuilder {
-            name,
-            constant_pool: ConstantPool(Vec::new()),
-            methods: HashMap::new(),
+            class: Class {
+                name,
+                ..Default::default()
+            },
         }
     }
 
     pub fn new_method(&mut self, method_builder: MethodBuilder) -> Result<(), AstError> {
         let method = method_builder.create_method()?;
-        self.methods.insert(method.get_name().clone(), method);
+        self.class.methods.insert(method.name.clone(), method);
         Ok(())
     }
 
     pub fn create_class(self) -> Result<Class, AstError> {
         use self::AstError::*;
 
-        if !is_valid_id(&self.name) {
-            Err(IllegalClassName(self.name))
+        if !is_valid_id(&self.class.name) {
+            Err(IllegalClassName(self.class.name))
         } else {
-            Ok(Class {
-                   name: self.name,
-                   constant_pool: self.constant_pool,
-                   methods: self.methods,
-               })
+            Ok(self.class)
         }
     }
 }

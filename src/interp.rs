@@ -49,7 +49,7 @@ pub struct Frame {
 
 impl Frame {
     pub fn new(method: &Method, parent_stack: &mut Vec<StackValue>) -> Result<Frame, InterpError> {
-        let num_locals = method.get_locals();
+        let num_locals = method.locals;
         if parent_stack.len() < num_locals {
             Result::Err(InterpError::InsufficientLocals)
         } else {
@@ -128,19 +128,17 @@ impl Frame {
     }
 
     pub fn exec(&mut self, method: &Method) -> Result<StackValue, InterpError> {
-        {
-            let mut pc = 0usize;
-            let code = method.get_code();
+        let mut pc = 0usize;
+        let code = &method.code;
 
-            loop {
-                let op: OpCode = code[pc];
-                match self.exec_op(op) {
-                    Next => pc += 1,
-                    Jump(next_pc) => pc = next_pc,
-                    Return(ret_val) => return Result::Ok(ret_val),
-                    Exception => return Result::Err(InterpError::Exception),
-                    Err(err) => return Result::Err(err),
-                }
+        loop {
+            let op: OpCode = code[pc];
+            match self.exec_op(op) {
+                Next => pc += 1,
+                Jump(next_pc) => pc = next_pc,
+                Return(ret_val) => return Result::Ok(ret_val),
+                Exception => return Result::Err(InterpError::Exception),
+                Err(err) => return Result::Err(err),
             }
         }
     }
