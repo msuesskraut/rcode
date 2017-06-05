@@ -44,20 +44,18 @@ use self::OpResult::*;
 pub struct Frame {
     locals: Vec<StackValue>,
     stack: Vec<StackValue>,
-    pc: usize,
 }
 
 impl Frame {
-    pub fn new(method: &Method, parent_stack: &mut Vec<StackValue>) -> Result<Frame, InterpError> {
+    fn new(method: &Method, caller_stack: &mut Vec<StackValue>) -> Result<Frame, InterpError> {
         let num_locals = method.locals;
-        if parent_stack.len() < num_locals {
+        if caller_stack.len() < num_locals {
             Result::Err(InterpError::InsufficientLocals)
         } else {
-            let split_point = parent_stack.len() - num_locals;
+            let split_point = caller_stack.len() - num_locals;
             Ok(Frame {
-                   locals: parent_stack.split_off(split_point),
+                   locals: caller_stack.split_off(split_point),
                    stack: Vec::new(),
-                   pc: 0,
                })
         }
     }
@@ -120,6 +118,7 @@ impl Frame {
     fn exec_op(&mut self, op: OpCode) -> OpResult {
         use ast::OpCode::*;
         match op {
+            iload_0 => self.iload(0),
             iload_1 => self.iload(1),
             iload_2 => self.iload(2),
             iadd => self.iadd(),
@@ -127,7 +126,7 @@ impl Frame {
         }
     }
 
-    pub fn exec(&mut self, method: &Method) -> Result<StackValue, InterpError> {
+    fn exec(&mut self, method: &Method) -> Result<StackValue, InterpError> {
         let mut pc = 0usize;
         let code = &method.code;
 
@@ -142,4 +141,9 @@ impl Frame {
             }
         }
     }
+}
+
+pub fn exec_method(method: &Method, parent_stack: &mut Vec<StackValue>) -> Result<StackValue, InterpError> {
+    let mut frame = Frame::new(method, parent_stack)?;
+    frame.exec(method)
 }

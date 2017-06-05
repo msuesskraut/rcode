@@ -43,6 +43,7 @@ impl Type {
 #[allow(non_camel_case_types)]
 #[derive(Debug, Copy, Clone)]
 pub enum OpCode {
+    iload_0,
     iload_1,
     iload_2,
     iadd,
