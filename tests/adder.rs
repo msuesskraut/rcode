@@ -26,6 +26,7 @@ fn create_adder_method() {
 
     let res = exec_method(method, &mut caller_stack);
     assert!(match res {
-        Ok(StackValue::Int(4)) => true,
-        _ => false});
+                Ok(StackValue::Int(4)) => true,
+                _ => false,
+            });
 }

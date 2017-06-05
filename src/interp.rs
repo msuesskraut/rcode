@@ -143,7 +143,9 @@ impl Frame {
     }
 }
 
-pub fn exec_method(method: &Method, parent_stack: &mut Vec<StackValue>) -> Result<StackValue, InterpError> {
+pub fn exec_method(method: &Method,
+                   parent_stack: &mut Vec<StackValue>)
+                   -> Result<StackValue, InterpError> {
     let mut frame = Frame::new(method, parent_stack)?;
     frame.exec(method)
 }
