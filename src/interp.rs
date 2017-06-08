@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use ast::*;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum InterpError {
     InsufficientLocals,
     StackUnderflow,
@@ -21,6 +21,56 @@ pub enum StackValue {
     CRef(Option<Rc<RefCell<Object>>>),
     IRef(Option<Rc<RefCell<Object>>>),
     ARef(Option<Rc<RefCell<Array>>>),
+}
+
+impl PartialEq for StackValue {
+    fn eq(&self, other: &StackValue) -> bool {
+        use self::StackValue::*;
+
+        match *self {
+            Void => {
+                if let Void = *other {
+                    true
+                }
+                else {
+                    false
+                }
+            },
+            Int(lhs) => {
+                if let Int(rhs) = *other {
+                    lhs == rhs
+                }
+                else {
+                    false
+                }
+            },
+            Long(lhs) => {
+                if let Long(rhs) = *other {
+                    lhs == rhs
+                }
+                else {
+                    false
+                }
+            }
+            Float(lhs) => {
+                if let Float(rhs) = *other {
+                    lhs == rhs
+                }
+                else {
+                    false
+                }
+            },
+            Double(lhs) => {
+                if let Double(rhs) = *other {
+                    lhs == rhs
+                }
+                else {
+                    false
+                }
+            }
+            _ => false
+        }
+    }
 }
 
 #[derive(Debug)]

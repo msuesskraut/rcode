@@ -25,8 +25,5 @@ fn create_adder_method() {
     let mut caller_stack = vec![StackValue::Int(1), StackValue::Int(3)];
 
     let res = exec_method(method, &mut caller_stack);
-    assert!(match res {
-                Ok(StackValue::Int(4)) => true,
-                _ => false,
-            });
+    assert_eq!(Ok(StackValue::Int(4)), res);
 }
