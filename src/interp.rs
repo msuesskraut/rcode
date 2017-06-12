@@ -96,7 +96,7 @@ impl Frame {
             // append default values for local variables
             locals.append(&mut vec![StackValue::Void; method.locals]);
             Ok(Frame {
-                   locals, 
+                   locals,
                    stack: Vec::new(),
                })
         }

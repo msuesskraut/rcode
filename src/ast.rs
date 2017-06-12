@@ -25,15 +25,19 @@ pub enum Type {
 
 #[derive(Debug)]
 struct DescriptorParser<'a> {
-    type_str : &'a str,
-    type_iter : Peekable<Chars<'a>>,
+    type_str: &'a str,
+    type_iter: Peekable<Chars<'a>>,
+}
+
+fn type_error<T>(type_str: &str) -> Result<T, AstError> {
+    Err(AstError::IllegalTypeString(String::from(type_str)))
 }
 
 impl<'a> DescriptorParser<'a> {
-    fn new(type_str : &'a str) -> DescriptorParser<'a> {
+    fn new(type_str: &'a str) -> DescriptorParser<'a> {
         DescriptorParser {
             type_str,
-            type_iter : type_str.chars().peekable(),
+            type_iter: type_str.chars().peekable(),
         }
     }
 
@@ -60,7 +64,7 @@ impl<'a> DescriptorParser<'a> {
             // class name
             Some('L') => self.parse_class(),
             // something else: error
-            _ => Err(AstError::IllegalTypeString(self.type_str.to_string())),
+            _ => type_error(self.type_str),
         }
     }
 
@@ -73,9 +77,8 @@ impl<'a> DescriptorParser<'a> {
         let ty = self.parse_field_type()?;
         if let Some(ty) = ty {
             Ok(Some(Type::Array(dim, Box::new(ty))))
-        }
-        else {
-            Err(AstError::IllegalTypeString(self.type_str.to_string()))
+        } else {
+            type_error(self.type_str)
         }
     }
 
@@ -83,11 +86,11 @@ impl<'a> DescriptorParser<'a> {
         let mut class_name = String::new();
         while let Some(ch) = self.type_iter.next() {
             if ';' == ch {
-                return Ok(Some(Type::Class(class_name)))
+                return Ok(Some(Type::Class(class_name)));
             }
             class_name.push(ch);
         }
-        Err(AstError::IllegalTypeString(self.type_str.to_string()))
+        type_error(self.type_str)
     }
 }
 
@@ -105,9 +108,8 @@ impl Type {
         let mut p = DescriptorParser::new(type_str);
         let ty = p.parse_field_type()?;
         if ty.is_none() || !p.eof() {
-            Err(AstError::IllegalTypeString(type_str.to_string()))
-        }
-        else {
+            type_error(type_str)
+        } else {
             Ok(ty.unwrap())
         }
     }
@@ -118,12 +120,15 @@ fn split_method_descriptor(desc: &str) -> Result<(&str, &str), AstError> {
     let end = desc.find(')');
 
     if let (Some(start), Some(end)) = (start, end) {
-        let args = &desc[(start + 1)..(end - start)];
-        let ret = &desc[(end + 1)..];
-        Ok((args, ret))
-    }
-    else {
-        Err(AstError::IllegalTypeString(desc.to_string()))
+        if end < start {
+            type_error(desc)
+        } else {
+            let args = &desc[(start + 1)..(end - start)];
+            let ret = &desc[(end + 1)..];
+            Ok((args, ret))
+        }
+    } else {
+        type_error(desc)
     }
 }
 
@@ -138,22 +143,27 @@ impl FunctionType {
         let (args, ret) = split_method_descriptor(type_str)?;
         let mut args_parser = DescriptorParser::new(args);
         let mut args = Vec::new();
-        while let Some(arg_ty) = args_parser.parse_field_type()? {
-            args.push(arg_ty);
+        loop {
+            match args_parser.parse_field_type() {
+                Ok(Some(arg_ty)) => args.push(arg_ty),
+                Ok(None) => break,
+                Err(_) => return type_error(type_str),
+            }
         }
         if ret.is_empty() {
-            return Err(AstError::IllegalTypeString(type_str.to_string()));
+            return type_error(type_str);
         }
         let ret = if ret == "V" {
             None
-        }
-        else {
-            Some(Type::parse(ret)?)
+        } else {
+            let ret = Type::parse(ret);
+            if let Ok(ret) = ret {
+                Some(ret)
+            } else {
+                return type_error(type_str);
+            }
         };
-        Ok(FunctionType{
-            args,
-            ret
-        })
+        Ok(FunctionType { args, ret })
     }
 }
 
