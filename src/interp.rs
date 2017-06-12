@@ -28,47 +28,36 @@ impl PartialEq for StackValue {
         use self::StackValue::*;
 
         match *self {
-            Void => {
-                if let Void = *other {
-                    true
-                }
-                else {
-                    false
-                }
-            },
+            Void => if let Void = *other { true } else { false },
             Int(lhs) => {
                 if let Int(rhs) = *other {
                     lhs == rhs
-                }
-                else {
+                } else {
                     false
                 }
-            },
+            }
             Long(lhs) => {
                 if let Long(rhs) = *other {
                     lhs == rhs
-                }
-                else {
+                } else {
                     false
                 }
             }
             Float(lhs) => {
                 if let Float(rhs) = *other {
                     lhs == rhs
-                }
-                else {
-                    false
-                }
-            },
-            Double(lhs) => {
-                if let Double(rhs) = *other {
-                    lhs == rhs
-                }
-                else {
+                } else {
                     false
                 }
             }
-            _ => false
+            Double(lhs) => {
+                if let Double(rhs) = *other {
+                    lhs == rhs
+                } else {
+                    false
+                }
+            }
+            _ => false,
         }
     }
 }
@@ -98,13 +87,16 @@ pub struct Frame {
 
 impl Frame {
     fn new(method: &Method, caller_stack: &mut Vec<StackValue>) -> Result<Frame, InterpError> {
-        let num_locals = method.locals;
-        if caller_stack.len() < num_locals {
+        let num_args = method.ty.args.len();
+        if caller_stack.len() < num_args {
             Result::Err(InterpError::InsufficientLocals)
         } else {
-            let split_point = caller_stack.len() - num_locals;
+            let split_point = caller_stack.len() - num_args;
+            let mut locals = caller_stack.split_off(split_point);
+            // append default values for local variables
+            locals.append(&mut vec![StackValue::Void; method.locals]);
             Ok(Frame {
-                   locals: caller_stack.split_off(split_point),
+                   locals, 
                    stack: Vec::new(),
                })
         }

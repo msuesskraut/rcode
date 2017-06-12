@@ -1,13 +1,16 @@
 use std::collections::HashMap;
+use std::iter::Peekable;
+use std::str::Chars;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AstError {
     IllegalMethodName(String),
     IllegalClassName(String),
+    IllegalTypeString(String),
 }
 
-#[derive(Debug)]
-pub enum PrimitiveType {
+#[derive(Debug, PartialEq, Clone)]
+pub enum Type {
     Boolean,
     Byte,
     Short,
@@ -16,27 +19,141 @@ pub enum PrimitiveType {
     Long,
     Float,
     Double,
+    Class(String),
+    Array(usize, Box<Type>),
 }
 
 #[derive(Debug)]
-pub enum ReferenceType {
-    Class,
-    Interface,
-    Array,
+struct DescriptorParser<'a> {
+    type_str : &'a str,
+    type_iter : Peekable<Chars<'a>>,
 }
 
-#[derive(Debug)]
-pub enum Type {
-    Primitive(PrimitiveType),
-    Reference(ReferenceType),
+impl<'a> DescriptorParser<'a> {
+    fn new(type_str : &'a str) -> DescriptorParser<'a> {
+        DescriptorParser {
+            type_str,
+            type_iter : type_str.chars().peekable(),
+        }
+    }
+
+    #[inline]
+    fn eof(&mut self) -> bool {
+        self.type_iter.peek().is_none()
+    }
+
+    fn parse_field_type(&mut self) -> Result<Option<Type>, AstError> {
+        match self.type_iter.next() {
+            // end of string
+            None => Ok(None),
+            // basic types
+            Some('B') => Ok(Some(Type::Byte)),
+            Some('C') => Ok(Some(Type::Char)),
+            Some('D') => Ok(Some(Type::Double)),
+            Some('F') => Ok(Some(Type::Float)),
+            Some('I') => Ok(Some(Type::Integer)),
+            Some('J') => Ok(Some(Type::Long)),
+            Some('S') => Ok(Some(Type::Short)),
+            Some('Z') => Ok(Some(Type::Boolean)),
+            // found array
+            Some('[') => self.parse_array(),
+            // class name
+            Some('L') => self.parse_class(),
+            // something else: error
+            _ => Err(AstError::IllegalTypeString(self.type_str.to_string())),
+        }
+    }
+
+    fn parse_array(&mut self) -> Result<Option<Type>, AstError> {
+        let mut dim = 1usize;
+        while let Some(&'[') = self.type_iter.peek() {
+            dim += 1;
+            assert!(Some('[') == self.type_iter.next());
+        }
+        let ty = self.parse_field_type()?;
+        if let Some(ty) = ty {
+            Ok(Some(Type::Array(dim, Box::new(ty))))
+        }
+        else {
+            Err(AstError::IllegalTypeString(self.type_str.to_string()))
+        }
+    }
+
+    fn parse_class(&mut self) -> Result<Option<Type>, AstError> {
+        let mut class_name = String::new();
+        while let Some(ch) = self.type_iter.next() {
+            if ';' == ch {
+                return Ok(Some(Type::Class(class_name)))
+            }
+            class_name.push(ch);
+        }
+        Err(AstError::IllegalTypeString(self.type_str.to_string()))
+    }
 }
 
 impl Type {
     pub fn is_primitive(&self) -> bool {
+        use self::Type::*;
+
         match *self {
-            Type::Primitive(_) => true,
+            Boolean | Byte | Short | Char | Integer | Long | Float | Double => true,
             _ => false,
         }
+    }
+
+    pub fn parse(type_str: &str) -> Result<Type, AstError> {
+        let mut p = DescriptorParser::new(type_str);
+        let ty = p.parse_field_type()?;
+        if ty.is_none() || !p.eof() {
+            Err(AstError::IllegalTypeString(type_str.to_string()))
+        }
+        else {
+            Ok(ty.unwrap())
+        }
+    }
+}
+
+fn split_method_descriptor(desc: &str) -> Result<(&str, &str), AstError> {
+    let start = desc.find('(');
+    let end = desc.find(')');
+
+    if let (Some(start), Some(end)) = (start, end) {
+        let args = &desc[(start + 1)..(end - start)];
+        let ret = &desc[(end + 1)..];
+        Ok((args, ret))
+    }
+    else {
+        Err(AstError::IllegalTypeString(desc.to_string()))
+    }
+}
+
+#[derive(Debug, Default, PartialEq, Clone)]
+pub struct FunctionType {
+    pub ret: Option<Type>,
+    pub args: Vec<Type>,
+}
+
+impl FunctionType {
+    pub fn parse(type_str: &str) -> Result<FunctionType, AstError> {
+        let (args, ret) = split_method_descriptor(type_str)?;
+        let mut args_parser = DescriptorParser::new(args);
+        let mut args = Vec::new();
+        while let Some(arg_ty) = args_parser.parse_field_type()? {
+            args.push(arg_ty);
+        }
+        if ret.is_empty() {
+            return Err(AstError::IllegalTypeString(type_str.to_string()));
+        }
+        let ret = if ret == "V" {
+            None
+        }
+        else {
+            Some(Type::parse(ret)?)
+        };
+        Ok(FunctionType{
+            args,
+            ret
+        })
     }
 }
 
@@ -67,12 +184,6 @@ pub fn is_valid_id(id: &String) -> bool {
 pub struct ConstantPool(Vec<ConstValue>);
 
 #[derive(Debug, Default)]
-pub struct FunctionType {
-    ret: Option<Type>,
-    args: Vec<Type>,
-}
-
-#[derive(Debug, Default)]
 pub struct Method {
     pub name: String,
     pub ty: FunctionType,
@@ -84,32 +195,56 @@ pub struct Method {
 #[derive(Debug, Default)]
 pub struct MethodBuilder {
     method: Method,
+    error: Option<AstError>,
 }
 
 impl MethodBuilder {
     pub fn set_name(mut self, name: String) -> MethodBuilder {
-        self.method.name = name;
+        if self.error.is_none() {
+            self.method.name = name;
+        }
+        self
+    }
+
+    pub fn set_type(mut self, type_str: &str) -> MethodBuilder {
+        if self.error.is_none() {
+            let ty = FunctionType::parse(type_str);
+            if let Ok(ty) = ty {
+                self.method.ty = ty;
+            } else {
+                self.error = ty.err();
+            }
+        }
         self
     }
 
     pub fn set_static(mut self, statik: bool) -> MethodBuilder {
-        self.method.statik = statik;
+        if self.error.is_none() {
+            self.method.statik = statik;
+        }
         self
     }
 
     pub fn set_locals(mut self, locals: usize) -> MethodBuilder {
-        self.method.locals = locals;
+        if self.error.is_none() {
+            self.method.locals = locals;
+        }
         self
     }
 
     pub fn append_op(mut self, op: OpCode) -> MethodBuilder {
-        self.method.code.push(op);
+        if self.error.is_none() {
+            self.method.code.push(op);
+        }
         self
     }
 
     pub fn create_method(self) -> Result<Method, AstError> {
         use self::AstError::*;
 
+        if let Some(err) = self.error {
+            return Err(err);
+        }
         if !is_valid_id(&self.method.name) {
             return Err(IllegalMethodName(self.method.name));
         }
