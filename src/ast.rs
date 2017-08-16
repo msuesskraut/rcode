@@ -72,7 +72,7 @@ impl<'a> DescriptorParser<'a> {
         let mut dim = 1usize;
         while let Some(&'[') = self.type_iter.peek() {
             dim += 1;
-            assert!(Some('[') == self.type_iter.next());
+            assert_eq!(Some('['), self.type_iter.next());
         }
         let ty = self.parse_field_type()?;
         if let Some(ty) = ty {
@@ -186,8 +186,8 @@ pub enum ConstValue {
     String(String),
 }
 
-pub fn is_valid_id(id: &String) -> bool {
-    id.len() > 0
+pub fn is_valid_id(id: &str) -> bool {
+    !id.is_empty()
 }
 
 #[derive(Debug, Default)]
@@ -271,7 +271,7 @@ pub struct Class {
 
 impl Class {
     #[inline]
-    pub fn get_method(&self, name: &String) -> Option<&Method> {
+    pub fn get_method(&self, name: &str) -> Option<&Method> {
         self.methods.get(name)
     }
 }
